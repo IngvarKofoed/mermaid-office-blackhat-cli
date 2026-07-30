@@ -1,0 +1,19 @@
+{
+  "name": "hatchery-cli",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Check the status of your Mermaid Office Hatchery critters from the terminal.",
+  "type": "module",
+  "bin": {
+    "hatchery-status": "./hatchery-status.mjs"
+  },
+  "scripts": {
+    "start": "./hatchery-status.mjs",
+    "once": "./hatchery-status.mjs --once"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
