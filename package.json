@@ -1,15 +1,16 @@
 {
-  "name": "hatchery-cli",
-  "version": "1.0.0",
+  "name": "blackhat-cli",
+  "version": "2.0.0",
   "private": true,
-  "description": "Check the status of your Mermaid Office Hatchery critters from the terminal.",
+  "description": "Mermaid Office from the terminal — a main menu, and a screen per feature.",
   "type": "module",
   "bin": {
-    "hatchery-status": "./hatchery-status.mjs"
+    "blackhat": "./blackhat.mjs"
   },
   "scripts": {
-    "start": "./hatchery-status.mjs",
-    "once": "./hatchery-status.mjs --once"
+    "start": "./blackhat.mjs",
+    "hatchery": "./blackhat.mjs hatchery",
+    "once": "./blackhat.mjs hatchery --once"
   },
   "engines": {
     "node": ">=18"
