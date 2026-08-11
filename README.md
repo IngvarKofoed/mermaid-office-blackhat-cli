@@ -1,15 +1,16 @@
 # Blackhat
 
 Mermaid Office from the terminal. Run it bare and you get a main menu; open an
-item and you get that feature's screen. Today there is one feature — the
-**Hatchery** — but the shell is built for more.
+item and you get that feature's screen. Two features so far — the **Hatchery**
+and **Notifications** — and the shell is built for more.
 
 ```
  🧜 BLACKHAT                                       you@example.com  10:05:36 PM
 
-   🥚  Hatchery   Tend and watch your critters
+   🥚  Hatchery        Tend and watch your critters
+   🔔  Notifications   What's been happening
 
- 1 feature                                           ↑/↓ move · ↵ open · q quit
+ 2 features                                          ↑/↓ move · ↵ open · q quit
 ```
 
 **Every feature's background work starts with the app**, not with its screen. The
@@ -45,6 +46,7 @@ lib/registry.mjs                   the feature list — one line per feature
 lib/api.mjs                        REST client, JWT cache (shared by features)
 lib/env.mjs                        credentials loading
 lib/units.mjs                      counts, durations, clock times
+lib/notify.mjs                     asking the OS to show a message
 lib/term/ansi.mjs                  colours, screen control, terminal width maths
 lib/term/screen.mjs                the flicker-free frame, and the keyboard
 lib/features/hatchery/index.mjs    the feature descriptor
@@ -52,7 +54,13 @@ lib/features/hatchery/service.mjs  polls and tends — runs in the background
 lib/features/hatchery/screen.mjs   draws the board — only while it's open
 lib/features/hatchery/care.mjs     deciding and doing the chores (the only writes)
 lib/features/hatchery/format.mjs   board → lines of text
+lib/features/notifications/…       the same five parts, for the live feed
 ```
+
+**Node 22+** for the app itself, because the notification stream uses the global
+`WebSocket` that arrived in Node 22. The one-shot commands (`--once`, `--json`,
+anything piped) don't open a socket and still run on Node 18 — so an existing
+cron line keeps working on an older runtime.
 
 ## Setup
 
@@ -240,6 +248,68 @@ so no flags are needed. Note cron has almost no `PATH`, so use absolute paths:
 
 Add `--no-care` to that line if you want the log without the chores.
 
+## Notifications
+
+A live feed of everything the server tells you about — critters getting hungry,
+eggs ready to hatch, coins arriving, chat messages — as a menu item, and as
+**OS notifications** the moment they land.
+
+```
+ 🧜 BLACKHAT · NOTIFICATIONS                        you@example.com  8:51:44 AM
+ 3 unread · listening
+ ──────────────────────────────────────────────────────────────────────────────
+ • 🍽️  Bubbles is getting hungry · Feed it before things get worse.  2m 8s ago
+ • 🥚  Cracky is ready to hatch! · Head to the Hatchery and tap it t… 1h 0m ago
+   💀  Departed has died · 14 days alive · earned 140 🪙 total.       1d 2h ago
+   🥚  Yolky spoiled before hatching · It went too cold and dry. Ado… 1d 6h ago
+ • 🔔  Wreck raided · Nemo · 250 🪙                                   5m 8s ago
+   💬  Chat message · Coral · Standup · “anyone seen my kraken”      1h 30m ago
+ ──────────────────────────────────────────────────────────────────────────────
+ 3 unread                     u refresh · a mark all read · ↑/↓ scroll · q back
+```
+
+One row each, unread in bold with a bullet. The age is always kept — a long
+preview is cut with a `…` rather than pushing the timestamp off the edge.
+
+Like the Hatchery, the stream runs from launch: a WebSocket is held open
+whatever screen you're on, so a banner appears whether you're on the menu, in
+the Hatchery, or looking at nothing at all.
+
+| Option          | Meaning                                          |
+| --------------- | ------------------------------------------------ |
+| `--limit <n>`   | How many to fetch (default 50, max 200)          |
+| `--no-toast`    | List them, but raise no OS notifications         |
+| `-1, --once`    | Print the list and exit (the default when piped) |
+| `--json`        | The raw notifications as JSON                    |
+
+**The backlog never pops up.** Whatever was already waiting when the app started
+is listed but never raised — otherwise launching on a Monday would fire fifty
+banners at once. Only what arrives afterwards is announced, and a burst raises at
+most three plus a "5 more notifications" summary. That same rule covers a
+reconnect, which announces whatever it missed while the connection was down.
+
+macOS uses `osascript`; Linux uses `notify-send` if it's installed; anywhere else
+the screen says OS notifications aren't available rather than quietly doing
+nothing. Notification text contains other players' names and chat previews, so it
+is passed to `osascript` as *arguments* to an `on run argv` script, never
+interpolated into the script — a critter named `" & (do shell script "…") & "` is
+just an odd-looking name.
+
+Only the critter notifications get hand-written wording; everything else is
+rendered generically from whatever the payload carries. That's deliberate — the
+website formats ~60 kinds in 847 lines, and mirroring it here would drift the
+moment the server adds one. The cost is that a `wreck_raided` reads as "Wreck
+raided · Nemo · 250 🪙" rather than a full sentence. The benefit is that it reads
+at all.
+
+### It claims your daily login bonus
+
+Holding the stream open is the one thing here that writes to your account: the
+server claims your daily login bonus when a socket connects, and again on its
+30-second heartbeat. That's the same thing opening the website does — but it
+means running `blackhat` writes to your account even with the Hatchery's
+`--no-care`. Use the one-shot commands if you want a look with no socket at all.
+
 ## Adding a feature
 
 A feature is a folder under `lib/features/` whose `index.mjs` default-exports a
@@ -258,8 +328,13 @@ export default {
   createService(ctx, flags),  // → { state, start, stop, subscribe, activity }
   createScreen(service),      // → { title, headerLines, bodyLines, … onKey }
   runOnce(ctx, flags),        // → text to print, for the piped path
+  requires(),                 // optional → why the service can't run here, or null
 };
 ```
+
+`requires()` is how a feature declares a runtime it needs — Notifications uses it
+for the global `WebSocket`. It's checked only where services actually start, so a
+feature that can't run doesn't break the one-shot commands.
 
 The split to respect is that the **service** owns the timers, the writes and the
 state, and the **screen** only turns that state into lines. That's what lets the
@@ -276,6 +351,8 @@ It talks to the ordinary REST API — the same one the website uses:
 - `GET /api/auth/me` for your name and coin balance
 - `GET /api/critter` for the critter board
 - `POST /api/critter/feed` and `/clean` — the chores, unless `--no-care`
+- `GET /api/notifications` and `POST /api/notifications/read`
+- `ws://…/ws?token=…` — the live notification stream
 
 The token is cached (mode `0600`) under `~/.cache/blackhat/`, keyed by server +
 account, and re-minted automatically when it expires — so polling every few

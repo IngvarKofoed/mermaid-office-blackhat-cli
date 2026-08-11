@@ -10,10 +10,11 @@
   "scripts": {
     "start": "./blackhat.mjs",
     "hatchery": "./blackhat.mjs hatchery",
+    "notifications": "./blackhat.mjs notifications",
     "once": "./blackhat.mjs hatchery --once"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "dependencies": {},
   "devDependencies": {}

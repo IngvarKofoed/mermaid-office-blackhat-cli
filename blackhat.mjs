@@ -205,6 +205,17 @@ async function main() {
     }
   }
 
+  // A feature's runtime requirements belong to its background *service*, so
+  // they're checked here — on the one path that starts services — rather than
+  // at startup. That keeps a one-shot `blackhat hatchery --once` in cron
+  // working on a Node too old for some other feature's stream. Checked before
+  // runApp() rather than inside it so the failure is an ordinary message on a
+  // normal terminal, not a throw with the alternate screen already open.
+  for (const f of REGISTRY) {
+    const missing = f.requires?.();
+    if (missing) fail(missing);
+  }
+
   await runApp({
     registry: REGISTRY,
     ctx,
