@@ -11,6 +11,7 @@
     "start": "./blackhat.mjs",
     "hatchery": "./blackhat.mjs hatchery",
     "notifications": "./blackhat.mjs notifications",
+    "brew": "./blackhat.mjs brew",
     "once": "./blackhat.mjs hatchery --once"
   },
   "engines": {

@@ -1,16 +1,18 @@
 # Blackhat
 
 Mermaid Office from the terminal. Run it bare and you get a main menu; open an
-item and you get that feature's screen. Two features so far — the **Hatchery**
-and **Notifications** — and the shell is built for more.
+item and you get that feature's screen. Three features so far — the
+**Hatchery**, **Notifications** and **The Still** — and the shell is built for
+more.
 
 ```
  🧜 BLACKHAT                                       you@example.com  10:05:36 PM
 
    🥚  Hatchery        Tend and watch your critters
    🔔  Notifications   What's been happening
+   🍶  The Still       Keep a batch of Bilge Brew going
 
- 2 features                                          ↑/↓ move · ↵ open · q quit
+ 3 features                                          ↑/↓ move · ↵ open · q quit
 ```
 
 **Every feature's background work starts with the app**, not with its screen. The
@@ -102,6 +104,7 @@ MERMAID_URL=https://mermaid.example MERMAID_EMAIL=you@example.com \
 ./blackhat.mjs                        # the main menu
 ./blackhat.mjs hatchery               # the same app, opened on the Hatchery
 ./blackhat.mjs hatchery --once        # one round, print it, exit
+./blackhat.mjs brew --once            # check the still, start one if it's empty
 ./blackhat.mjs --help
 ./blackhat.mjs hatchery --help
 ```
@@ -248,6 +251,17 @@ so no flags are needed. Note cron has almost no `PATH`, so use absolute paths:
 
 Add `--no-care` to that line if you want the log without the chores.
 
+The Still suits cron for the same reason, and one run a day is enough — the
+patrol happens once a night, so all a scheduled run has to do is make sure
+there's something in the still for it to walk past:
+
+```cron
+30 8 * * * /usr/local/bin/node /path/to/blackhat-cli/blackhat.mjs brew --no-color >> /tmp/still.log 2>&1
+```
+
+A scheduled run never raises a banner — it prints its report instead, nag and
+all, which is what a log wants.
+
 ## Notifications
 
 A live feed of everything the server tells you about — critters getting hungry,
@@ -295,20 +309,91 @@ is passed to `osascript` as *arguments* to an `on run argv` script, never
 interpolated into the script — a critter named `" & (do shell script "…") & "` is
 just an odd-looking name.
 
-Only the critter notifications get hand-written wording; everything else is
-rendered generically from whatever the payload carries. That's deliberate — the
-website formats ~60 kinds in 847 lines, and mirroring it here would drift the
-moment the server adds one. The cost is that a `wreck_raided` reads as "Wreck
-raided · Nemo · 250 🪙" rather than a full sentence. The benefit is that it reads
-at all.
+Only the kinds with a screen here get hand-written wording — the seven critter
+ones and the two from The Still; everything else is rendered generically from
+whatever the payload carries. That's deliberate — the website formats ~60 kinds
+in 847 lines, and mirroring it here would drift the moment the server adds one.
+The cost is that a `wreck_raided` reads as "Wreck raided · Nemo · 250 🪙" rather
+than a full sentence. The benefit is that it reads at all.
 
 ### It claims your daily login bonus
 
-Holding the stream open is the one thing here that writes to your account: the
-server claims your daily login bonus when a socket connects, and again on its
-30-second heartbeat. That's the same thing opening the website does — but it
-means running `blackhat` writes to your account even with the Hatchery's
-`--no-care`. Use the one-shot commands if you want a look with no socket at all.
+Holding the stream open writes to your account: the server claims your daily
+login bonus when a socket connects, and again on its 30-second heartbeat. That's
+the same thing opening the website does — but it means running `blackhat` writes
+even with the Hatchery's `--no-care`. Use the one-shot commands if you want a
+look with no socket at all.
+
+That's the second of the three writes this tool makes. The Hatchery's chores are
+the first, and The Still's automatic start is the third; each is off with its own
+flag, and none of them can spend a coin.
+
+## The Still
+
+The prison's Bilge Brew still, for the half of that game you keep forgetting:
+having a batch on at all. It puts one in the still whenever you're in The Brig
+and it's empty, and it tells you when the odds say to cash out.
+
+```
+ 🧜 BLACKHAT · THE STILL                            you@example.com  9:14:02 AM
+ cell 3 · banked 7 🍶
+ updated 12s ago · next check in 4m 48s · started a batch at 09:14
+ ──────────────────────────────────────────────────────────────────────────────
+
+   Batch    ●●●●  4 units   started Monday
+   Patrol   tonight · DC 9 · Stealth +2 · about 70%
+   Last     rolled 14 +2 = 16 vs DC 8 · survived
+
+   ⚠ holding no longer pays — bottle it
+
+ ──────────────────────────────────────────────────────────────────────────────
+ bottle it                        b bottle · u refresh · ↑/↓ scroll · q back
+```
+
+| Option                | Meaning                                        |
+| --------------------- | ---------------------------------------------- |
+| `--no-start`          | Only look; never put a batch in the still      |
+| `-i, --interval`      | How often to check (default 5m)                |
+| `-1, --once`          | One round and exit (the default when piped)    |
+| `--json`              | The raw round as JSON                          |
+
+### Starting is automatic, bottling never is
+
+Starting a batch is the free half of the game — a fresh one has the lowest DC,
+and a batch with nothing in it loses nothing when the guard pours it out. So it
+happens on its own, like the Hatchery's chores, unless you pass `--no-start`.
+
+Bottling is the other half, and it's the whole point of the game: hold for one
+more night and you might gain a unit, or lose the lot. So it stays yours. Press
+`b` and the footer asks; press `b` again to go through with it. Any other key
+backs out.
+
+The reminder does the remembering. It works out when holding has stopped paying
+— the survival odds against one more unit versus what's already in there — and
+raises one banner when the batch crosses that line, then one more on each later
+night that adds a unit. With no Dexterity bonus that's three units; at +2 it's
+four. Both numbers come from the server on every read, so the advice stays right
+if the game is ever retuned.
+
+### The one time starting costs you something
+
+A batch started on a day you've already bottled forfeits its first patrol —
+that's the game's rule, and it's what makes holding a small batch a real choice.
+On a weekday it costs nothing, because the night was spent the moment you
+bottled. On a **weekend** it costs one real roll, since the skipped night hops
+to Monday. The screen says so when it happens rather than quietly showing a
+batch that won't roll tonight.
+
+Bottle on a Saturday and you'll see it. It's the price of never forgetting, and
+it's one night.
+
+### The nightly patrol shows up in Notifications
+
+The guard rolls at team midnight while you're asleep, so the notification *is*
+the reveal — it carries the die, your modifier and the DC. That arrives through
+the Notifications feature, not this one, which is why both are worth leaving
+running. This screen shows last night's roll and tonight's odds; it never rolls
+anything itself.
 
 ## Adding a feature
 
@@ -353,6 +438,10 @@ It talks to the ordinary REST API — the same one the website uses:
 - `POST /api/critter/feed` and `/clean` — the chores, unless `--no-care`
 - `GET /api/notifications` and `POST /api/notifications/read`
 - `ws://…/ws?token=…` — the live notification stream
+- `GET /api/prison` — whether you're in The Brig, and which cell
+- `GET /api/prison/brew` and `POST /api/prison/brew/start` — The Still, unless
+  `--no-start`; `POST /api/prison/brew/bottle` only when you press `b`
+- `GET /api/prison/contraband` — what you've already banked
 
 The token is cached (mode `0600`) under `~/.cache/blackhat/`, keyed by server +
 account, and re-minted automatically when it expires — so polling every few
