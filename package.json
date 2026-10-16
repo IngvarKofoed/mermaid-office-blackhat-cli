@@ -12,6 +12,7 @@
     "hatchery": "./blackhat.mjs hatchery",
     "notifications": "./blackhat.mjs notifications",
     "brew": "./blackhat.mjs brew",
+    "coast-bot": "./blackhat.mjs coast-bot",
     "once": "./blackhat.mjs hatchery --once"
   },
   "engines": {

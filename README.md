@@ -1,9 +1,9 @@
 # Blackhat
 
 Mermaid Office from the terminal. Run it bare and you get a main menu; open an
-item and you get that feature's screen. Three features so far — the
-**Hatchery**, **Notifications** and **The Still** — and the shell is built for
-more.
+item and you get that feature's screen. Four features so far — the
+**Hatchery**, **Notifications**, **The Still** and the **Coast Bot** — and the
+shell is built for more.
 
 ```
  🧜 BLACKHAT                                       you@example.com  10:05:36 PM
@@ -11,8 +11,9 @@ more.
    🥚  Hatchery        Tend and watch your critters
    🔔  Notifications   What's been happening
    🍶  The Still       Keep a batch of Bilge Brew going
+   🧭  Coast Bot       Copy the Treasure World fishing script
 
- 3 features                                          ↑/↓ move · ↵ open · q quit
+ 4 features                                          ↑/↓ move · ↵ open · q quit
 ```
 
 **Every feature's background work starts with the app**, not with its screen. The
@@ -49,6 +50,7 @@ lib/api.mjs                        REST client, JWT cache (shared by features)
 lib/env.mjs                        credentials loading
 lib/units.mjs                      counts, durations, clock times
 lib/notify.mjs                     asking the OS to show a message
+lib/clipboard.mjs                  putting text on the clipboard
 lib/term/ansi.mjs                  colours, screen control, terminal width maths
 lib/term/screen.mjs                the flicker-free frame, and the keyboard
 lib/features/hatchery/index.mjs    the feature descriptor
@@ -57,6 +59,7 @@ lib/features/hatchery/screen.mjs   draws the board — only while it's open
 lib/features/hatchery/care.mjs     deciding and doing the chores (the only writes)
 lib/features/hatchery/format.mjs   board → lines of text
 lib/features/notifications/…       the same five parts, for the live feed
+lib/features/coast-bot/…           a browser script, and the screen that copies it
 ```
 
 **Node 22+** for the app itself, because the notification stream uses the global
@@ -105,6 +108,7 @@ MERMAID_URL=https://mermaid.example MERMAID_EMAIL=you@example.com \
 ./blackhat.mjs hatchery               # the same app, opened on the Hatchery
 ./blackhat.mjs hatchery --once        # one round, print it, exit
 ./blackhat.mjs brew --once            # check the still, start one if it's empty
+./blackhat.mjs coast-bot > bot.js     # the Coast Bot's browser script, to a file
 ./blackhat.mjs --help
 ./blackhat.mjs hatchery --help
 ```
@@ -395,6 +399,67 @@ the Notifications feature, not this one, which is why both are worth leaving
 running. This screen shows last night's roll and tonight's odds; it never rolls
 anything itself.
 
+## Coast Bot
+
+Not a status screen: a script for the browser that sails your Treasure World
+ship round an island while you get on with something else, and calls you back
+the moment the egg-fishing sonar pings.
+
+```
+ 🧜 BLACKHAT · COAST BOT                            you@example.com  2:07:13 PM
+ Treasure World egg fishing · a script for the browser console
+ ──────────────────────────────────────────────────────────────────────────────
+
+   Sails your ship round an island's coast in the shallows, and stops the
+   moment the sonar pings — then flashes the tab title, beeps and raises a
+   desktop notification.
+   …
+   ✓ On the clipboard since 2:07:13 PM · 547 lines
+ ──────────────────────────────────────────────────────────────────────────────
+ copied                                         c copy · ↑/↓ scroll · q back
+```
+
+Press `c` and the script is on your clipboard. Then board your ship with the
+fishing kit, sail to an island — any but the home harbour, where no ping ever
+rolls — paste it into the DevTools console on `/treasure-world`, and click
+**Start** in the 🧭 panel it adds at the bottom left. Piped, the command prints
+the script instead: `blackhat coast-bot | pbcopy` does the same as `c`.
+
+| Option        | Meaning                                                |
+| ------------- | ------------------------------------------------------ |
+| `-1, --once`  | Print the script and exit (the default when piped)     |
+
+What the script does, once started:
+
+- **It follows the island nearest the ship** when you click Start, about 1.7
+  tiles off the coast. On this map that is always shallow water, so its rolls
+  are shore pings — the only kind that can hook a Silk Betta.
+- **It steers with the keyboard's own events** — the same arrow keys you'd
+  press — and reads rather than asks: the ship's position from the game's own
+  presence messages, pings from the game's own sonar polls. Pasting it costs one
+  board fetch and one map fetch, and nothing after.
+- **On a ping it stops**, flashes the tab title, beeps every 5 seconds and
+  raises a desktop notification (allow it when the browser asks).
+- **Your own keys win.** An arrow key, WASD, E, F or Space pauses it, and Start
+  hands back. Left alone, it sails on once the ping fades — 30 seconds at most.
+- **It stops for good** once today's egg is kept, the egg crate is full, or you
+  go ashore.
+
+Why round a coast rather than back and forth on the spot: the sonar only rolls
+once the hull is 4 tiles, as the crow flies, from where it last rolled, and it
+checks every 2 seconds. Turning about every second never gets that far, so it
+never pings at all. Round an island the bot rolls about 16 times a minute — a
+ping every couple of minutes — where sailing straight across the wind manages
+nearer 30, at the cost of the shallows.
+
+**Keep the browser window visible** — not minimised, not in a background tab,
+not fully covered by other windows. The game only moves the ship while the page
+is drawing, and macOS counts a fully covered window as hidden.
+
+Nothing on the CLI side talks to the server. `c` only touches the clipboard:
+`pbcopy` on macOS, the first of `wl-copy`, `xclip` or `xsel` on Linux. Anywhere
+else the screen says so, and the piped form still works.
+
 ## Adding a feature
 
 A feature is a folder under `lib/features/` whose `index.mjs` default-exports a
@@ -443,6 +508,9 @@ It talks to the ordinary REST API — the same one the website uses:
   `--no-start`; `POST /api/prison/brew/bottle` only when you press `b`
 - `GET /api/prison/contraband` — what you've already banked
 
+The Coast Bot makes no requests from here. Its script, running in your browser
+as you, reads `GET /api/treasure-world` and the tile map once when pasted.
+
 The token is cached (mode `0600`) under `~/.cache/blackhat/`, keyed by server +
 account, and re-minted automatically when it expires — so polling every few
 minutes isn't a fresh login each time. Delete that folder to force a re-login.
@@ -482,3 +550,10 @@ Two display details are copied from the server, since the API doesn't send them:
 the hatch-tap count (`HATCH_CLICKS_REQUIRED`) and the species display names
 (derived from the `kind` id). Both are marked in the source. If a species is
 renamed or the tap count is retuned, only the labels drift — nothing breaks.
+
+The Coast Bot's script leans on the website much harder, because it drives the
+page itself: the arrow-key bindings, the `treasure.move` presence message, the
+sonar's `state` values, the `token` in `localStorage`, and the map's terrain
+ids. Those are the website's internals, not an API, so a change to any of them
+can stop the bot — it fails by not moving or not stopping, never by writing
+anything the game wouldn't take from a keyboard.
