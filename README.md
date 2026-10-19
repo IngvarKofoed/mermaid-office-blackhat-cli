@@ -2,16 +2,16 @@
 
 Mermaid Office from the terminal. Run it bare and you get a main menu; open an
 item and you get that feature's screen. Four features so far — the
-**Hatchery**, **Notifications**, **The Still** and the **Coast Bot** — and the
-shell is built for more.
+**Hatchery**, **Notifications**, **The Still** and the **Browser Scripts** —
+and the shell is built for more.
 
 ```
  🧜 BLACKHAT                                       you@example.com  10:05:36 PM
 
-   🥚  Hatchery        Tend and watch your critters
-   🔔  Notifications   What's been happening
-   🍶  The Still       Keep a batch of Bilge Brew going
-   🧭  Coast Bot       Copy the Treasure World fishing script
+   🥚  Hatchery          Tend and watch your critters
+   🔔  Notifications     What's been happening
+   🍶  The Still         Keep a batch of Bilge Brew going
+   📜  Browser Scripts   Copy a script for the browser console
 
  4 features                                          ↑/↓ move · ↵ open · q quit
 ```
@@ -59,7 +59,7 @@ lib/features/hatchery/screen.mjs   draws the board — only while it's open
 lib/features/hatchery/care.mjs     deciding and doing the chores (the only writes)
 lib/features/hatchery/format.mjs   board → lines of text
 lib/features/notifications/…       the same five parts, for the live feed
-lib/features/coast-bot/…           a browser script, and the screen that copies it
+lib/features/scripts/…             the browser scripts, and the screen that copies them
 ```
 
 **Node 22+** for the app itself, because the notification stream uses the global
@@ -108,7 +108,7 @@ MERMAID_URL=https://mermaid.example MERMAID_EMAIL=you@example.com \
 ./blackhat.mjs hatchery               # the same app, opened on the Hatchery
 ./blackhat.mjs hatchery --once        # one round, print it, exit
 ./blackhat.mjs brew --once            # check the still, start one if it's empty
-./blackhat.mjs coast-bot > bot.js     # the Coast Bot's browser script, to a file
+./blackhat.mjs scripts coast-bot > bot.js   # a browser script, to a file
 ./blackhat.mjs --help
 ./blackhat.mjs hatchery --help
 ```
@@ -399,35 +399,48 @@ the Notifications feature, not this one, which is why both are worth leaving
 running. This screen shows last night's roll and tonight's odds; it never rolls
 anything itself.
 
-## Coast Bot
+## Browser Scripts
 
-Not a status screen: a script for the browser that sails your Treasure World
-ship round an island while you get on with something else, and calls you back
-the moment the egg-fishing sonar pings.
+Not a status screen: scripts for the browser's DevTools console, for the games
+that need a hand on the page itself. Each one runs in the browser, not here; this
+screen only hands them over.
 
 ```
- 🧜 BLACKHAT · COAST BOT                            you@example.com  2:07:13 PM
- Treasure World egg fishing · a script for the browser console
+ 🧜 BLACKHAT · BROWSER SCRIPTS                      you@example.com  2:07:13 PM
+ Scripts for the browser's DevTools console · they run there, not here
  ──────────────────────────────────────────────────────────────────────────────
 
-   Sails your ship round an island's coast in the shallows, and stops the
-   moment the sonar pings — then flashes the tab title, beeps and raises a
-   desktop notification.
+    🧭  Coast Bot    Sails an island's coast and fishes the sonar's pings
+    🏮  Lights Out   Shows the bilge's two eggs through the dark
+
+   Rings the Brig bilge's two eggs, the Evil Sea Urchin's and the Evil
    …
-   ✓ On the clipboard since 2:07:13 PM · 547 lines
+   ✓ On the clipboard since 2:07:13 PM · 252 lines
  ──────────────────────────────────────────────────────────────────────────────
- copied                                         c copy · ↑/↓ scroll · q back
+ Lights Out copied                               ↑/↓ pick · c copy · q back
 ```
 
-Press `c` and the script is on your clipboard. Then board your ship with the
-fishing kit, sail to an island — any but the home harbour, where no ping ever
-rolls — paste it into the DevTools console on `/treasure-world`, and click
-**Start** in the 🧭 panel it adds at the bottom left. Piped, the command prints
-the script instead: `blackhat coast-bot | pbcopy` does the same as `c`.
+Pick a script with `↑`/`↓` and press `c` to put it on the clipboard; the screen
+says which page it wants and what to do once it's pasted. Piped, the command
+prints a script instead: `blackhat scripts coast-bot | pbcopy` does the same as
+`c`, and `blackhat scripts` with nothing named lists them. Pasting a script again
+replaces its earlier copy, and each has a `×` to remove it.
 
-| Option        | Meaning                                                |
-| ------------- | ------------------------------------------------------ |
-| `-1, --once`  | Print the script and exit (the default when piped)     |
+| Option        | Meaning                                                      |
+| ------------- | ------------------------------------------------------------ |
+| `-1, --once`  | Print the script, or the list, and exit (default when piped) |
+
+Each script is one standalone file in `lib/features/scripts/`, since a pasted
+script can't import anything; `catalog.mjs` lists them, with the how-to the
+screen shows.
+
+### Coast Bot
+
+Sails your Treasure World ship round an island while you get on with something
+else, and calls you back the moment the egg-fishing sonar pings. Board your ship
+with the fishing kit, sail to an island — any but the home harbour, where no ping
+ever rolls — paste it into the console on `/treasure-world`, and click **Start**
+in the 🧭 panel it adds at the bottom left.
 
 What the script does, once started:
 
@@ -445,6 +458,29 @@ What the script does, once started:
 - **It stops for good** once today's egg is kept, the egg crate is full, or you
   go ashore.
 
+**Auto-fish.** Turn on 🎣 in the panel and pick the eggs to keep — the toggles
+list every kind the rod can bring up, read from the server's catch table, with
+each one's odds per cast in its tooltip. Both choices are remembered between
+pastes. Then, instead of calling you, the bot fishes each ping itself:
+
+- **It sails onto the ping** by sea, round any land in the way, stops within a
+  tile of it, and waits for the hull to stand still as a cast needs.
+- **It casts and reels with the game's own F**, reeling a moment after the bite
+  it hears on the game's own socket, and goes on until the ping's ten casts are
+  spent.
+- **It keeps the first egg of a kind you picked** and lets every other go, with
+  the game's own Keep and Release buttons. Keeping ends the day's fishing, so it
+  then stops and raises the alarm.
+- **It skips pings that can't hold your eggs**, leaving them to fade as it sails
+  on. Axoblooms bite only in the far north (the top 40 rows: Dead Bay and Coral
+  Cay, whose shallows are all in it); Silk Bettas only on shore pings, which is
+  what the shallows give. Start refuses an island where none of your eggs bite.
+
+Per cast where both zones meet: Seahorse 31 %, Leafy Seadragon 10 %, Narwhal 4 %,
+Axobloom and Silk Betta 0.7 % each, nothing the rest. A ping's ten casts give a
+1-in-7 chance of either rarity there, and fishing a ping takes about a minute
+and a half.
+
 Why round a coast rather than back and forth on the spot: the sonar only rolls
 once the hull is 4 tiles, as the crow flies, from where it last rolled, and it
 checks every 2 seconds. Turning about every second never gets that far, so it
@@ -459,6 +495,27 @@ is drawing, and macOS counts a fully covered window as hidden.
 Nothing on the CLI side talks to the server. `c` only touches the clipboard:
 `pbcopy` on macOS, the first of `wl-copy`, `xclip` or `xsel` on Linux. Anywhere
 else the screen says so, and the piped form still works.
+
+### Lights Out
+
+A wall hack for the Brig's bilge: a ring and a label on each of its two eggs, the
+Evil Sea Urchin's and the Evil Anglerfish's, whether or not they're glowing and
+wherever your lantern is. Paste it on any page — the bilge opens over whatever
+page you're on — and go down as usual; pasting mid-run works too.
+
+- **The server never says what a light is, but the paths do.** The urchin egg is
+  the only light that never moves. The anglerfish egg is the only soft light
+  drifting *with* the current: lures drift against it, and shards twinkle
+  without ever going fully dark. Checked against the server's own scene
+  generator over 25,000 scenes, with no light misread.
+- **It reads, never sends.** The scene is the one the page already holds, read
+  off the bilge canvas every frame. No requests, no clicks: you still put the
+  lantern on the ring and press — click the anglerfish egg, hold the urchin egg
+  for a second.
+- **The bilge's top right corner says what the run holds**, usually nothing: 16 %
+  of runs have an urchin egg and 4 % an anglerfish egg. An anglerfish egg that
+  hasn't drifted in yet shows as a dashed ring where it will, with a countdown.
+- **The rings never block a click.** They sit on a layer the mouse passes through.
 
 ## Adding a feature
 
@@ -508,8 +565,11 @@ It talks to the ordinary REST API — the same one the website uses:
   `--no-start`; `POST /api/prison/brew/bottle` only when you press `b`
 - `GET /api/prison/contraband` — what you've already banked
 
-The Coast Bot makes no requests from here. Its script, running in your browser
-as you, reads `GET /api/treasure-world` and the tile map once when pasted.
+The Browser Scripts make no requests from here. The Coast Bot's script, running in your browser
+as you, reads `GET /api/treasure-world` and the tile map once when pasted. Auto-fish
+works the game's own F key and buttons, so the casts, reels, keeps and releases
+are the game's own requests; only when it can't find the Keep or Release button
+does it send `POST /api/treasure-world/fish/keep` or `…/release` itself.
 
 The token is cached (mode `0600`) under `~/.cache/blackhat/`, keyed by server +
 account, and re-minted automatically when it expires — so polling every few
@@ -554,6 +614,15 @@ renamed or the tap count is retuned, only the labels drift — nothing breaks.
 The Coast Bot's script leans on the website much harder, because it drives the
 page itself: the arrow-key bindings, the `treasure.move` presence message, the
 sonar's `state` values, the `token` in `localStorage`, and the map's terrain
-ids. Those are the website's internals, not an API, so a change to any of them
+ids — and for auto-fish the F key, the `fishing.bite` socket message, the
+`Keep` / `Release` button labels, and the `north` / `shore` zone names in the
+catch table. Those are the website's internals, not an API, so a change to any of them
 can stop the bot — it fails by not moving or not stopping, never by writing
 anything the game wouldn't take from a keyboard.
+
+Lights Out leans on the bilge's internals the same way: the canvas's
+`aria-label` ("The flooded bilge…"), the `liveRef` and `config` props it reads
+through React's fiber on that canvas, and the scene's tells — the urchin egg's
+stationary path, the soft lights' dark spells, and the current's direction. A
+change there makes it say it can't read the bilge, or ring nothing; it never
+sends anything.
