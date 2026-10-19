@@ -412,6 +412,7 @@ screen only hands them over.
 
     🧭  Coast Bot    Sails an island's coast and fishes the sonar's pings
     🏮  Lights Out   Shows the bilge's two eggs through the dark
+    ⚡  Plinko Bot   Plays all of today's Live Wire Plinko batteries
 
    Rings the Brig bilge's two eggs, the Evil Sea Urchin's and the Evil
    …
@@ -517,6 +518,39 @@ page you're on — and go down as usual; pasting mid-run works too.
   hasn't drifted in yet shows as a dashed ring where it will, with a countdown.
 - **The rings never block a click.** They sit on a layer the mouse passes through.
 
+### Plinko Bot
+
+Plays the day's Live Wire Plinko for you: buys a battery, drops every spark,
+closes the board when the sparks run out and buys the next, until all ten of
+today's batteries are gone. **That spends real coins**: 🪙2,000 a battery, so
+🪙20,000 for a full day. The ⚡ panel says how many are left before you click
+Start. Paste it in The Brig (`/rooms/prison`), where the game is played.
+
+- **Every spark goes down the chute with the best odds of the Eelectra egg.**
+  Nothing on the board is secret (the buckets, the drain and the Static /
+  Grease / Lid flags are all in the battery), so the bot solves the whole
+  battery against the dice: every chute, every bucket, every spark left. That
+  often means beside the drain rather than over it, away from a fuse and
+  towards a recharge, and with the Lid on it goes after sparks.
+- **Checked against the server's own rules.** Its landing odds match the
+  server's path writer, and over 50,000 simulated batteries on the server's
+  own `playDrop` it found the egg in **1 battery in 21** (4.7 %), where aiming
+  at the drain manages 1 in 24.5 and random chutes 1 in 54. Its predicted odds
+  matched the simulation to 0.01 points.
+- **An egg ends the run.** It keeps the egg, since keeping one ends the day's
+  batteries anyway, flashes the tab title, beeps and raises a desktop
+  notification. Finishing all ten without one raises a quiet notification.
+- **It plays with the board's own controls** (the chute keys and the Drop
+  button, the panel's Buy and the ending's Close) and reads the battery from
+  the game's own answers, so the board animates as if you were playing.
+- **Touching the page yourself pauses it**; Start hands back. The panel moves
+  onto the board while it's open, as the board makes the rest of the page
+  unclickable.
+- **Keep the window visible.** A spark lands only once the board has drawn it
+  falling, about 3½ seconds a spark. Steering into recharges stretches a
+  battery to about 12 sparks on average (1 in 20 run past 24), so a day of ten
+  takes about 7 minutes.
+
 ## Adding a feature
 
 A feature is a folder under `lib/features/` whose `index.mjs` default-exports a
@@ -570,6 +604,10 @@ as you, reads `GET /api/treasure-world` and the tile map once when pasted. Auto-
 works the game's own F key and buttons, so the casts, reels, keeps and releases
 are the game's own requests; only when it can't find the Keep or Release button
 does it send `POST /api/treasure-world/fish/keep` or `…/release` itself.
+The Plinko Bot reads `GET /api/prison/plinko` once when pasted. Everything
+after that is the page's own requests, made by clicking its buttons: a
+`POST /api/prison/plinko/battery` per battery (🪙2,000 each), a
+`…/drop` per spark, and `…/keep` if an egg comes up.
 
 The token is cached (mode `0600`) under `~/.cache/blackhat/`, keyed by server +
 account, and re-minted automatically when it expires — so polling every few
@@ -626,3 +664,12 @@ through React's fiber on that canvas, and the scene's tells — the urchin egg's
 stationary path, the soft lights' dark spells, and the current's direction. A
 change there makes it say it can't read the bilge, or ring nothing; it never
 sends anything.
+
+The Plinko Bot leans on the board's controls: the pegboard canvas's
+`aria-label` ("The pegboard…"), the `1`–`9` chute keys, and the button labels
+`Buy a battery`, `Drop from chute N`, `Close`, `Keep` and `Done`. It also
+mirrors the server's dice, which aren't on the wire: the kick chance (0.11), at
+most two kicks, the up-kick share (0.25), their lane steps, and the 2.5 % catch
+chance. A changed label makes it stand still rather than misclick. Changed dice
+only make its chute choices a little less than best; the drops are always the
+server's.
