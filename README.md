@@ -413,6 +413,7 @@ screen only hands them over.
     🧭  Coast Bot    Sails an island's coast and fishes the sonar's pings
     🏮  Lights Out   Shows the bilge's two eggs through the dark
     ⚡  Plinko Bot   Plays all of today's Live Wire Plinko batteries
+    🦀  Tide Digger  Digs an island's tide line for hermits and shells
 
    Rings the Brig bilge's two eggs, the Evil Sea Urchin's and the Evil
    …
@@ -551,6 +552,39 @@ Start. Paste it in The Brig (`/rooms/prison`), where the game is played.
   battery to about 12 sparks on average (1 in 20 run past 24), so a day of ten
   takes about 7 minutes.
 
+### Tide Digger
+
+Digs a Treasure World island's tide line for hermits and shells. You sail there
+and go ashore yourself; paste it on `/treasure-world` and click Start in the 🦀
+panel at the top right. It digs every tide-line tile of the island you're
+standing on, then stops.
+
+- **The tide line is the game's own rule**: sand with water beside it, on any
+  island but the home harbour, which is the only place hermits and shells wash
+  up. The script works it out from the public map with the game's island rule,
+  and finds the same 315 tiles the server does (23 to 40 an island).
+- **It walks and digs with the game's own keys**: the arrow keys a short leg
+  at a time, re-reading where the game says the figure stopped before the
+  next, and F on each tile. A find's dialog gets "Skip the brushing" and
+  "Keep digging". Each dig drinks one water, as by hand, so it stops when the
+  water runs out.
+- **A hermit raises the alarm** (title, beep, desktop notification), since it
+  has two hours in the holding tank to reach the Hatchery. The bot digs on for
+  shells. The tank holds one hermit, so a second burrows back in; the bot
+  remembers that tile and digs it again on a later run once the tank is empty.
+  A full shell crate is handled the same way for shells.
+- **It remembers today's dug tiles**, so pasting it again doesn't spend water
+  on them twice. A tide that comes in on an island forgets that island's tiles.
+  `__tideDigger.forget()` in the console forgets them all.
+- **Your own keys win.** An arrow key, WASD, E, F, Q or Space pauses it; Start
+  hands back. Keep the window visible, as the figure only walks while the page
+  is drawing.
+
+Tried on a local copy after an admin tide on Rum Cay (31 tide-line tiles, 2
+hermits and 6 shells from the tide, more shells from the seed): it dug all 31 in
+66 seconds and brought up every find there, 9 shells and a hermit, leaving only
+the second hermit, which the full tank couldn't take.
+
 ## Adding a feature
 
 A feature is a folder under `lib/features/` whose `index.mjs` default-exports a
@@ -608,6 +642,9 @@ The Plinko Bot reads `GET /api/prison/plinko` once when pasted. Everything
 after that is the page's own requests, made by clicking its buttons: a
 `POST /api/prison/plinko/battery` per battery (🪙2,000 each), a
 `…/drop` per spark, and `…/keep` if an egg comes up.
+The Tide Digger reads `GET /api/treasure-world` and the tile map once when
+pasted. Its digs are the page's own `PUT /api/treasure-world/position` and
+`POST /api/treasure-world/dig`, sent by the F key, one water each.
 
 The token is cached (mode `0600`) under `~/.cache/blackhat/`, keyed by server +
 account, and re-minted automatically when it expires — so polling every few
@@ -673,3 +710,11 @@ most two kicks, the up-kick share (0.25), their lane steps, and the 2.5 % catch
 chance. A changed label makes it stand still rather than misclick. Changed dice
 only make its chute choices a little less than best; the drops are always the
 server's.
+
+The Tide Digger mirrors two of the game's rules from the public map: the tide
+line (sand with a shallow or deep tile beside it, never the home harbour) and
+which island a tile belongs to (the first island whose box of `radius + 4`
+holds it). It also leans on the arrow keys and F, the position reports, and
+the find dialog's "Skip the brushing" and "Keep digging" buttons. A changed rule
+makes it dig the wrong tiles or miss some; a changed button leaves the dialog
+open, and the next dig waits behind it until three tries fail and it stops.
