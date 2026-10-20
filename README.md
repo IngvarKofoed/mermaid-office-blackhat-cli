@@ -414,6 +414,7 @@ screen only hands them over.
     🏮  Lights Out   Shows the bilge's two eggs through the dark
     ⚡  Plinko Bot   Plays all of today's Live Wire Plinko batteries
     🦀  Tide Digger  Digs an island's tide line for hermits and shells
+    ⚓  Homeward     Sails your ship home to the Home Harbour's jetty
 
    Rings the Brig bilge's two eggs, the Evil Sea Urchin's and the Evil
    …
@@ -585,6 +586,31 @@ hermits and 6 shells from the tide, more shells from the seed): it dug all 31 in
 66 seconds and brought up every find there, 9 shells and a hermit, leaving only
 the second hermit, which the full tank couldn't take.
 
+### Homeward
+
+Sails your Treasure World ship back to the Home Harbour's jetty from anywhere
+on the map. Paste it on `/treasure-world` while you're aboard, and the ⚓ panel at
+the top right (under the Tide Digger's) says how long the way home is; click
+Start. It stops on the jetty's tile, where Space puts you ashore.
+
+- **It sails the fastest way in today's wind, as the game scores it.** Heading
+  into the wind's eye makes 45 % speed, close-hauled 75 % and a beam reach
+  full speed, so going upwind it tacks rather than crawling straight at the
+  harbour. It plans over the whole map by sea, round every island, from the
+  game's own wind forecast, and replans whenever the wind has turned 2°.
+- **It steers with the game's own arrow keys** and reads the ship's position
+  from the page's own move reports, which come four times a second; between
+  them it reckons ahead along its heading, so it turns on the right tile.
+- **Your own keys win.** An arrow key, WASD, E, F, Q or Space pauses it; Start
+  hands back. If the ship stops moving for five seconds (a hidden window, or a
+  battle) it stops and says so.
+
+Tried in Node against a copy of the game's sailing loop, on the real map and
+wind: from where a ship lay in the far north it was home in 60 seconds, and
+from 245 starts across five winds every one ended on the jetty, at most 16 %
+slower than planned. Dead upwind it tacked home in 74 seconds where sailing
+straight into the wind takes 85.
+
 ## Adding a feature
 
 A feature is a folder under `lib/features/` whose `index.mjs` default-exports a
@@ -645,6 +671,9 @@ after that is the page's own requests, made by clicking its buttons: a
 The Tide Digger reads `GET /api/treasure-world` and the tile map once when
 pasted. Its digs are the page's own `PUT /api/treasure-world/position` and
 `POST /api/treasure-world/dig`, sent by the F key, one water each.
+Homeward reads `GET /api/treasure-world`, the tile map and
+`GET /api/treasure-world/wind` when pasted, and the wind again on Start when
+it's ten minutes old. The sailing is all the page's own reports.
 
 The token is cached (mode `0600`) under `~/.cache/blackhat/`, keyed by server +
 account, and re-minted automatically when it expires — so polling every few
@@ -718,3 +747,10 @@ holds it). It also leans on the arrow keys and F, the position reports, and
 the find dialog's "Skip the brushing" and "Keep digging" buttons. A changed rule
 makes it dig the wrong tiles or miss some; a changed button leaves the dialog
 open, and the next dig waits behind it until three tries fail and it stops.
+
+Homeward mirrors the game's sailing: the points of sail (sent in the config),
+how the forecast's keyframes are read for the wind now, the hull passing as a
+point that slides along a coast, and the jetty at `homeDock`. It leans on the
+arrow keys and the `treasure.move` and `PUT /api/treasure-world/position`
+reports too. A changed rule only makes its way home slower; a changed report
+leaves it unable to see the ship, so it stops after five seconds.
